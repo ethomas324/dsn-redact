@@ -1,0 +1,16 @@
+{
+  "name": "dsn-redact",
+  "version": "0.1.0",
+  "description": "Redact credentials from database and service connection strings",
+  "private": true,
+  "bin": {
+    "dsn-redact": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

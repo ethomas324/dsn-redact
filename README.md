@@ -1,0 +1,64 @@
+# dsn-redact
+
+Connection strings end up in the wrong places constantly: pasted into a bug
+report, dropped into a Slack thread while debugging a flaky staging box,
+copied into a log line "just for now." Most of them carry a plaintext
+password right in the string, and that password gets copied along with
+everything else because nobody wants to hand-edit the string before pasting
+it.
+
+`dsn-redact` takes connection strings in and prints them back out with the
+password (or anything that looks like one) replaced, keeping the host, port,
+database name, and driver intact so the string is still useful for debugging.
+
+## Usage
+
+Pipe a string in on stdin:
+
+```
+$ echo "postgres://admin:hunter2@db.internal:5432/orders" | dsn-redact
+postgres://admin:REDACTED@db.internal:5432/orders
+```
+
+Key/value style DSNs (ODBC, ADO.NET) work the same way:
+
+```
+$ echo "Server=myserver;Database=mydb;User Id=admin;Password=hunter2;" | dsn-redact
+Server=myserver;Database=mydb;User Id=admin;Password=REDACTED;
+```
+
+Or point it at one or more files, one connection string per line:
+
+```
+$ dsn-redact strings.txt other-strings.txt
+```
+
+Mix files and stdin by passing `-` alongside file arguments. With no
+arguments at all, it reads stdin. Blank lines and lines starting with `#` are
+skipped, so you can keep a running file of strings with comments in it.
+
+## What it recognizes
+
+- URL-style DSNs with a `scheme://` prefix: `postgres://`, `mysql://`,
+  `mongodb://`, `redis://`, `amqp://`, and anything else shaped like a URL.
+  The userinfo password component is redacted.
+- Key/value DSNs separated by `;`, the ODBC/ADO.NET convention
+  (`Key=Value;Key=Value;...`). Any key matching `password`, `pwd`, `secret`,
+  `token`, `api-key`, or `access-key` (case-insensitive) is redacted.
+- Anything that doesn't match either shape is printed back unchanged, rather
+  than guessed at.
+
+## Building
+
+No dependencies are installed by default. `npm install` pulls in TypeScript
+as a dev dependency, then:
+
+```
+npm run build
+node dist/index.js < strings.txt
+```
+
+## Status
+
+First pass. It only redacts; it doesn't yet validate or parse a string into
+its component fields for programmatic use. See the issues for what's next.
