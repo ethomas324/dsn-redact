@@ -9,7 +9,9 @@ function readStdin(): string {
 }
 
 function main(): void {
-  const args = process.argv.slice(2);
+  const rawArgs = process.argv.slice(2);
+  const jsonOutput = rawArgs.includes("--json");
+  const args = rawArgs.filter((arg) => arg !== "--json");
   const fileArgs = args.filter((arg) => arg !== "-");
   const readStdinToo = args.length === 0 || args.includes("-");
 
@@ -33,7 +35,8 @@ function main(): void {
   }
 
   for (const line of lines) {
-    process.stdout.write(redactConnectionString(line).redacted + "\n");
+    const result = redactConnectionString(line);
+    process.stdout.write((jsonOutput ? JSON.stringify(result) : result.redacted) + "\n");
   }
 }
 

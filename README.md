@@ -37,6 +37,21 @@ Mix files and stdin by passing `-` alongside file arguments. With no
 arguments at all, it reads stdin. Blank lines and lines starting with `#` are
 skipped, so you can keep a running file of strings with comments in it.
 
+Pass `--json` to get one JSON object per line instead of the plain redacted
+string. Each object carries the original input, the redacted string, the
+detected format, and a `components` breakdown with the password itself left
+out entirely, so it's safe to pipe into another tool without re-deriving the
+redaction:
+
+```
+$ echo "postgres://admin:hunter2@db.internal:5432/orders?sslmode=require" | dsn-redact --json
+{"input":"postgres://admin:hunter2@db.internal:5432/orders?sslmode=require","redacted":"postgres://admin:REDACTED@db.internal:5432/orders?sslmode=require","format":"url","components":{"scheme":"postgres","username":"admin","host":"db.internal","port":"5432","database":"orders","params":{"sslmode":"require"}}}
+```
+
+Strings that don't match either recognized shape come back with
+`"format":"unknown"` and no `components` key, since there's nothing to
+parse them into.
+
 ## What it recognizes
 
 - URL-style DSNs with a `scheme://` prefix: `postgres://`, `mysql://`,
@@ -60,5 +75,6 @@ node dist/index.js < strings.txt
 
 ## Status
 
-First pass. It only redacts; it doesn't yet validate or parse a string into
-its component fields for programmatic use. See the issues for what's next.
+Redacts and, with `--json`, parses into component fields. It doesn't yet
+validate that required fields are present per driver. See the issues for
+what's next.
