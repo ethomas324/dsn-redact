@@ -56,10 +56,15 @@ parse them into.
 
 - URL-style DSNs with a `scheme://` prefix: `postgres://`, `mysql://`,
   `mongodb://`, `redis://`, `amqp://`, and anything else shaped like a URL.
-  The userinfo password component is redacted.
+  The userinfo password component is redacted, and so is any query-string
+  parameter with a sensitive-looking key (`?password=...`, `?token=...`,
+  and so on -- same key list as below).
 - Key/value DSNs separated by `;`, the ODBC/ADO.NET convention
-  (`Key=Value;Key=Value;...`). Any key matching `password`, `pwd`, `secret`,
-  `token`, `api-key`, or `access-key` (case-insensitive) is redacted.
+  (`Key=Value;Key=Value;...`). Any key matching `password`, `pwd`, `pass`,
+  `secret`, `token`, `access-token`, `refresh-token`, `auth-token`,
+  `id-token`, `api-key`, `access-key`, `secret-key`, `private-key`,
+  `client-secret`, or `credential` (case-insensitive, `-`/`_` interchangeable)
+  is redacted.
 - Anything that doesn't match either shape is printed back unchanged, rather
   than guessed at.
 

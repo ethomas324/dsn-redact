@@ -30,7 +30,11 @@ export interface RedactionResult {
   components?: UrlComponents | KeyValueComponents;
 }
 
-const SENSITIVE_KEY_PATTERN = /^(password|pwd|pass|secret|token|api[-_]?key|access[-_]?key)$/i;
+// Covers both key/value DSN fields and URL query-string parameters. Kept
+// narrow on purpose -- e.g. "sslkey" (a file path, not a secret value)
+// should not match just because it ends in "key".
+const SENSITIVE_KEY_PATTERN =
+  /^(password|pwd|pass|secret|token|access[-_]?token|refresh[-_]?token|auth[-_]?token|id[-_]?token|api[-_]?key|access[-_]?key|secret[-_]?key|private[-_]?key|client[-_]?secret|credential)$/i;
 
 function parseQueryString(search: string): Record<string, string> {
   const params: Record<string, string> = {};
@@ -52,6 +56,14 @@ function parseQueryString(search: string): Record<string, string> {
   return params;
 }
 
+function redactParams(params: Record<string, string>): Record<string, string> {
+  const redacted: Record<string, string> = {};
+  for (const key of Object.keys(params)) {
+    redacted[key] = SENSITIVE_KEY_PATTERN.test(key) ? "REDACTED" : params[key];
+  }
+  return redacted;
+}
+
 function redactUrlStyle(line: string): RedactionResult | null {
   // Cheap pre-check before paying for a throwing URL parse.
   if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(line)) {
@@ -67,13 +79,24 @@ function redactUrlStyle(line: string): RedactionResult | null {
   if (url.password) {
     url.password = "REDACTED";
   }
+  const params = redactParams(parseQueryString(url.search));
+  if (Object.keys(params).length > 0) {
+    // Query strings often carry credentials too (?password=..., ?token=...),
+    // so the redacted params need to make it back into the URL itself, not
+    // just the components breakdown.
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      search.set(key, value);
+    }
+    url.search = search.toString();
+  }
   const components: UrlComponents = {
     scheme: url.protocol.replace(/:$/, ""),
     username,
     host: url.hostname,
     port: url.port,
     database: url.pathname.replace(/^\//, ""),
-    params: parseQueryString(url.search),
+    params,
   };
   return { input: line, redacted: url.toString(), format: "url", components };
 }
