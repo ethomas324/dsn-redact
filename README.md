@@ -78,6 +78,9 @@ npm run build
 node dist/index.js < strings.txt
 ```
 
+Run the tests with `npm test` (compiles with `tsc`, then runs the compiled
+specs with Node's built-in test runner -- no test framework dependency).
+
 ## Status
 
 Redacts and, with `--json`, parses into component fields. It doesn't yet
