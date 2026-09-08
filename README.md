@@ -52,6 +52,24 @@ Strings that don't match either recognized shape come back with
 `"format":"unknown"` and no `components` key, since there's nothing to
 parse them into.
 
+Pass `--check` to validate that each string has the fields its driver
+actually needs -- a Postgres or MySQL URL with no database path, or a
+key/value DSN with no host and no database key under any of its usual
+aliases (`Server`, `Data Source`, `Database`, `Initial Catalog`, ...), gets
+flagged on stderr and the process exits non-zero:
+
+```
+$ echo "postgres://admin:hunter2@db.internal:5432/" | dsn-redact --check
+postgres://admin:REDACTED@db.internal:5432/
+dsn-redact: line 1 (postgres): missing required field(s): database
+```
+
+Only a handful of well-known URL schemes (`postgres`, `mysql`, `mongodb`,
+`redis`, `amqp`, and their common variants) have a required-field list.
+Anything else is left unchecked rather than guessed at. Combine with
+`--json` to get the check result as a `check` field (`driver`, `known`,
+`missing`, `ok`) on each output object instead of a stderr line.
+
 ## What it recognizes
 
 - URL-style DSNs with a `scheme://` prefix: `postgres://`, `mysql://`,
@@ -83,6 +101,5 @@ specs with Node's built-in test runner -- no test framework dependency).
 
 ## Status
 
-Redacts and, with `--json`, parses into component fields. It doesn't yet
-validate that required fields are present per driver. See the issues for
-what's next.
+Redacts, parses into component fields with `--json`, and validates required
+fields per driver with `--check`. Not yet published to npm.

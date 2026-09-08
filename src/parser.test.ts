@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { redactConnectionString } from "./parser";
+import { redactConnectionString, checkRequiredFields } from "./parser";
 
 // URL style
 
@@ -81,4 +81,58 @@ test("strings that match neither shape pass through unchanged", () => {
   assert.equal(result.format, "unknown");
   assert.equal(result.redacted, "just a plain note, not a connection string");
   assert.equal(result.components, undefined);
+});
+
+// --check
+
+test("check passes a postgres url with host and database present", () => {
+  const result = redactConnectionString("postgres://admin:hunter2@db.internal:5432/orders");
+  const check = checkRequiredFields(result);
+  assert.equal(check.driver, "postgres");
+  assert.equal(check.known, true);
+  assert.deepEqual(check.missing, []);
+  assert.equal(check.ok, true);
+});
+
+test("check flags a postgres url missing a database", () => {
+  const result = redactConnectionString("postgres://admin:hunter2@db.internal:5432/");
+  const check = checkRequiredFields(result);
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.missing, ["database"]);
+});
+
+test("check flags a mysql url missing a host", () => {
+  const result = redactConnectionString("mysql://admin:hunter2@/orders");
+  const check = checkRequiredFields(result);
+  assert.equal(check.ok, false);
+  assert.ok(check.missing.includes("host"));
+});
+
+test("check is a no-op for schemes with no known requirements", () => {
+  const result = redactConnectionString("customdriver://admin:hunter2@host/thing");
+  const check = checkRequiredFields(result);
+  assert.equal(check.known, false);
+  assert.equal(check.ok, true);
+  assert.deepEqual(check.missing, []);
+});
+
+test("check passes a keyvalue dsn with server and database aliases", () => {
+  const result = redactConnectionString("Server=myserver;Database=mydb;User Id=admin;Password=hunter2;");
+  const check = checkRequiredFields(result);
+  assert.equal(check.known, true);
+  assert.equal(check.ok, true);
+});
+
+test("check flags a keyvalue dsn missing database, using Driver as the label", () => {
+  const result = redactConnectionString("Driver={PostgreSQL};Server=myserver;Uid=admin;Pwd=hunter2");
+  const check = checkRequiredFields(result);
+  assert.equal(check.driver, "PostgreSQL");
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.missing, ["database"]);
+});
+
+test("check recognizes Data Source and Initial Catalog as host/database aliases", () => {
+  const result = redactConnectionString("Data Source=myserver;Initial Catalog=mydb;User Id=admin;Password=hunter2;");
+  const check = checkRequiredFields(result);
+  assert.equal(check.ok, true);
 });

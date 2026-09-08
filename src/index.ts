@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from "fs";
-import { redactConnectionString } from "./parser";
+import { redactConnectionString, checkRequiredFields } from "./parser";
 
 function readStdin(): string {
   // Synchronous stdin read via fd 0. No streams/readline needed for a tool
@@ -11,7 +11,8 @@ function readStdin(): string {
 function main(): void {
   const rawArgs = process.argv.slice(2);
   const jsonOutput = rawArgs.includes("--json");
-  const args = rawArgs.filter((arg) => arg !== "--json");
+  const checkFields = rawArgs.includes("--check");
+  const args = rawArgs.filter((arg) => arg !== "--json" && arg !== "--check");
   const fileArgs = args.filter((arg) => arg !== "-");
   const readStdinToo = args.length === 0 || args.includes("-");
 
@@ -34,9 +35,25 @@ function main(): void {
     process.exit(1);
   }
 
-  for (const line of lines) {
+  let hasCheckFailure = false;
+  lines.forEach((line, index) => {
     const result = redactConnectionString(line);
-    process.stdout.write((jsonOutput ? JSON.stringify(result) : result.redacted) + "\n");
+    if (checkFields) {
+      const check = checkRequiredFields(result);
+      if (!check.ok) {
+        hasCheckFailure = true;
+        process.stderr.write(
+          `dsn-redact: line ${index + 1} (${check.driver}): missing required field(s): ${check.missing.join(", ")}\n`,
+        );
+      }
+      process.stdout.write((jsonOutput ? JSON.stringify({ ...result, check }) : result.redacted) + "\n");
+    } else {
+      process.stdout.write((jsonOutput ? JSON.stringify(result) : result.redacted) + "\n");
+    }
+  });
+
+  if (checkFields && hasCheckFailure) {
+    process.exitCode = 1;
   }
 }
 
